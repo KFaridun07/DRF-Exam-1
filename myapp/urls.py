@@ -27,6 +27,8 @@ urlpatterns = [
     path('favorites/', favorite_list),
     path('favorites/<int:pk>/', favorite_detail),
     path('users/<int:pk>/favorites/', user_favorites),
+    path('users/<int:pk>/analytics/', user_analytics),
+    path('dashboard/', dashboard),
     
 ]
 

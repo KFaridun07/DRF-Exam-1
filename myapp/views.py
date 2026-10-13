@@ -556,3 +556,52 @@ def user_analytics(request, pk):
     }
 
     return Response(data)
+
+
+
+@api_view(['GET'])
+def dashboard(request):
+    users_count = User.objects.count()
+    profiles_count = Profile.objects.count()
+    posts_count = Post.objects.count()
+    likes_count = Like.objects.count()
+    favorites_count = Favorite.objects.count()
+
+    post_stats = Post.objects.aggregate(
+        total_views=Sum('views'),
+        average_views=Avg('views')
+    )
+
+    most_active_user = User.objects.annotate(
+        posts_count=Count('post')
+    ).order_by('-posts_count', 'id').first()
+
+    most_popular_post = Post.objects.annotate(
+        likes_count=Count('like')
+    ).order_by('-likes_count', 'id').first()
+
+    latest_posts = Post.objects.all().order_by('-created_at')[:5]
+
+    latest_posts_data = []
+
+    for post in latest_posts:
+        latest_posts_data.append({'id': post.id,'title': post.title,'author': post.user.username,'likes_count': post.like_set.count()})
+
+    active_user_data = None
+
+    if most_active_user:
+        active_user_data = {'id': most_active_user.id,'username': most_active_user.username,'posts_count': most_active_user.posts_count}
+
+    popular_post_data = None
+
+    if most_popular_post:
+        popular_post_data = {'id': most_popular_post.id,'title': most_popular_post.title,'likes_count': most_popular_post.likes_count}
+
+    data = {
+        'statistics': {'users_count': users_count,'profiles_count': profiles_count,'posts_count': posts_count,'likes_count': likes_count,'favorites_count': favorites_count,'total_views': post_stats['total_views'] or 0,'average_views': post_stats['average_views'] or 0},
+        'most_active_user': active_user_data,
+        'most_popular_post': popular_post_data,
+        'latest_posts': latest_posts_data
+    }
+
+    return Response(data)
