@@ -20,6 +20,8 @@ urlpatterns = [
     path('posts/filter/', filter_posts),
     path('posts/statistics/', post_statistics),
     path('posts/author-statistics/', author_statistics),
+    path('likes/', like_list),
+    path('likes/<int:pk>/', like_detail),
     
 ]
 

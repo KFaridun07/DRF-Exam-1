@@ -101,3 +101,18 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = ['id','user','title','content','views','created_at','updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class LikeSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    post = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Like
+        fields = ['id', 'user', 'post', 'created_at']
+
+    def get_user(self, obj):
+        return {'id': obj.user.id,'username': obj.user.username}
+
+    def get_post(self, obj):
+        return {'id': obj.post.id,'title': obj.post.title}

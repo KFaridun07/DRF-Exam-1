@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.db.models import Count,Q,Sum,Avg,Max,Min
 from .models import *
 from .serializers import (UserSerializer,ProfileSerializer,ProfileListSerializer,PostListSerializer,PostDetailSerializer,PostSerializer,
-)
+LikeSerializer,)
 
 
 
@@ -351,3 +351,51 @@ def author_statistics(request):
         })
 
     return Response(data)
+
+
+
+
+@api_view(['GET', 'POST'])
+def like_list(request):
+    if request.method == 'GET':
+        likes = Like.objects.all().order_by('-created_at')
+        serializer = LikeSerializer(likes, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        user_id = request.data.get('user')
+        post_id = request.data.get('post')
+
+        if not user_id or not post_id:
+            return Response({'error': 'Укажите user и post'},status=400)
+
+        try:
+            user = User.objects.get(id=user_id)
+
+        except User.DoesNotExist:
+            return Response({'error': 'Пользователь не найден'},status=404)
+
+        try:
+            post = Post.objects.get(id=post_id)
+
+        except Post.DoesNotExist:
+            return Response({'error': 'Публикация не найдена'},status=404)
+
+        if Like.objects.filter(user=user, post=post).exists():
+            return Response({'error': 'Вы уже поставили лайк этой публикации'},status=400)
+
+        like = Like.objects.create(user=user, post=post)
+        serializer = LikeSerializer(like)
+
+        return Response(serializer.data, status=201)
+
+
+@api_view(['DELETE'])
+def like_detail(request, pk):
+    try:
+        like = Like.objects.get(id=pk)
+    except Like.DoesNotExist:
+        return Response({'error': 'Лайк не найден'},status=404)
+
+    like.delete()
+    return Response(status=204)
