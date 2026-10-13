@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.db.models import Count
+from django.db.models import Count,Q,Sum,Avg,Max,Min
 from .models import *
 from .serializers import (UserSerializer,ProfileSerializer,ProfileListSerializer,PostListSerializer,PostDetailSerializer,PostSerializer,
 )
@@ -250,5 +250,104 @@ def popular_posts(request):
 
     for post in serializer.data:
         data.append({'id': post['id'],'title': post['title'],'likes_count': post['likes_count'],'favorites_count': post['favorites_count'],'is_popular': post['is_popular']})
+
+    return Response(data)
+
+
+@api_view(['GET'])
+def search_posts(request):
+    q = request.GET.get('q')
+
+    posts = Post.objects.annotate(
+        likes_count=Count('like', distinct=True),
+        favorites_count=Count('favorite', distinct=True)
+    )
+
+    if q:
+        posts = posts.filter(
+            Q(title__icontains=q) |
+            Q(content__icontains=q)
+        )
+
+    serializer = PostListSerializer(posts, many=True)
+    return Response(serializer.data)
+
+
+
+@api_view(['GET'])
+def filter_posts(request):
+    min_views = request.GET.get('min_views')
+    max_views = request.GET.get('max_views')
+    user_id = request.GET.get('user_id')
+
+    posts = Post.objects.annotate(
+        likes_count=Count('like', distinct=True),
+        favorites_count=Count('favorite', distinct=True)
+    )
+
+    if min_views:
+        posts = posts.filter(views__gte=min_views)
+
+    if max_views:
+        posts = posts.filter(views__lte=max_views)
+
+    if user_id:
+        posts = posts.filter(user_id=user_id)
+
+    serializer = PostListSerializer(posts, many=True)
+    return Response(serializer.data)
+
+
+
+@api_view(['GET'])
+def post_statistics(request):
+    statistics = Post.objects.aggregate(
+        total_posts=Count('id'),
+        total_views=Sum('views'),
+        average_views=Avg('views'),
+        max_views=Max('views'),
+        min_views=Min('views')
+    )
+
+    statistics['total_likes'] = Like.objects.count()
+    statistics['total_favorites'] = Favorite.objects.count()
+
+    statistics['total_views'] = statistics['total_views'] or 0
+
+    if statistics['average_views'] is not None:
+        statistics['average_views'] = round(
+            statistics['average_views'], 2
+        )
+    else:
+        statistics['average_views'] = 0
+
+    statistics['max_views'] = statistics['max_views'] or 0
+    statistics['min_views'] = statistics['min_views'] or 0
+
+    return Response(statistics)
+
+
+
+@api_view(['GET'])
+def author_statistics(request):
+    authors = User.objects.annotate(
+        posts_count=Count('post', distinct=True),
+        total_views=Sum('post__views'),
+        average_views=Avg('post__views'),
+        likes_received=Count('post__like', distinct=True)
+    )
+
+    data = []
+
+    for author in authors:
+        data.append({
+            'user_id': author.id,
+            'username': author.username,
+            'posts_count': author.posts_count,
+            'total_views': author.total_views or 0,
+            'average_views': round(author.average_views, 2)
+                if author.average_views is not None else 0,
+            'likes_received': author.likes_received
+        })
 
     return Response(data)

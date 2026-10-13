@@ -16,6 +16,10 @@ urlpatterns = [
     path('posts/<int:pk>/', post_detail),
     path('users/<int:pk>/posts/', user_posts),
     path('posts/popular/', popular_posts),
+    path('posts/search/', search_posts),
+    path('posts/filter/', filter_posts),
+    path('posts/statistics/', post_statistics),
+    path('posts/author-statistics/', author_statistics),
     
 ]
 
