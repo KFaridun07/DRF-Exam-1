@@ -2,9 +2,11 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db.models import Count,Q,Sum,Avg,Max,Min
+from datetime import timedelta
+from django.utils import timezone
 from .models import *
 from .serializers import (UserSerializer,ProfileSerializer,ProfileListSerializer,PostListSerializer,PostDetailSerializer,PostSerializer,
-LikeSerializer,)
+LikeSerializer,FavoriteSerializer)
 
 
 
@@ -399,3 +401,158 @@ def like_detail(request, pk):
 
     like.delete()
     return Response(status=204)
+
+
+
+@api_view(['GET'])
+def post_likes(request, pk):
+    try:
+        post = Post.objects.get(id=pk)
+    except Post.DoesNotExist:
+        return Response({'error': 'Публикация не найдена'},status=404)
+
+    likes = Like.objects.filter(post=post)
+
+    users = []
+
+    for like in likes:
+        users.append({'id': like.user.id,'username': like.user.username})
+
+    data = {'post_id': post.id,'likes_count': likes.count(),'users': users}
+
+    return Response(data)
+
+
+
+@api_view(['GET'])
+def top_posts_by_likes(request):
+    posts = Post.objects.annotate(likes_count=Count('like')).order_by('-likes_count')[:10]
+
+    data = []
+
+    for post in posts:
+        data.append({'post_id': post.id,'title': post.title,'likes_count': post.likes_count})
+
+    return Response(data)
+
+
+
+@api_view(['GET', 'POST'])
+def favorite_list(request):
+    if request.method == 'GET':
+        favorites = Favorite.objects.all().order_by('-created_at')
+        serializer = FavoriteSerializer(favorites, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        user_id = request.data.get('user')
+        post_id = request.data.get('post')
+
+        if not user_id or not post_id:
+            return Response(
+                {'error': 'Укажите user и post'},
+                status=400
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Пользователь не найден'},
+                status=404
+            )
+
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            return Response(
+                {'error': 'Публикация не найдена'},
+                status=404
+            )
+
+        if Favorite.objects.filter(user=user, post=post).exists():
+            return Response(
+                {'error': 'Эта публикация уже добавлена в избранное'},
+                status=400
+            )
+
+        favorite = Favorite.objects.create(user=user, post=post)
+        serializer = FavoriteSerializer(favorite)
+
+        return Response(serializer.data, status=201)
+
+
+@api_view(['DELETE'])
+def favorite_detail(request, pk):
+    try:
+        favorite = Favorite.objects.get(id=pk)
+    except Favorite.DoesNotExist:
+        return Response(
+            {'error': 'Запись избранного не найдена'},
+            status=404
+        )
+
+    favorite.delete()
+    return Response(status=204)
+
+
+
+@api_view(['GET'])
+def user_favorites(request, pk):
+    try:
+        user = User.objects.get(id=pk)
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Пользователь не найден'},
+            status=404
+        )
+
+    favorites = Favorite.objects.filter(user=user).select_related('post')
+
+    results = []
+
+    for favorite in favorites:
+        post = favorite.post
+
+        results.append({'post_id': post.id,'title': post.title,'likes_count': post.like_set.count(),'views': post.views})
+
+    data = {'user': user.username,'favorites_count': favorites.count(),'results': results}
+
+    return Response(data)
+
+
+@api_view(['GET'])
+def user_analytics(request, pk):
+    try:
+        user = User.objects.get(id=pk)
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Пользователь не найден'},
+            status=404
+        )
+
+    posts = Post.objects.filter(user=user)
+
+    posts_count = posts.count()
+    total_views = posts.aggregate(total=Sum('views'))['total'] or 0
+    average_views = posts.aggregate(avg=Avg('views'))['avg'] or 0
+
+    likes_received = Like.objects.filter(post__user=user).count()
+    favorites_received = Favorite.objects.filter(post__user=user).count()
+
+    likes_given = Like.objects.filter(user=user).count()
+    favorites_given = Favorite.objects.filter(user=user).count()
+
+    last_week = timezone.now() - timedelta(days=7)
+    posts_last_7_days = posts.filter(
+        created_at__gte=last_week
+    ).count()
+
+    data = {
+        'user': {'id': user.id,'username': user.username,'full_name': f'{user.first_name} {user.last_name}'.strip()},
+        'posts': {'posts_count': posts_count,'total_views': total_views,'average_views': round(average_views)},
+        'engagement': {'likes_received': likes_received,'favorites_received': favorites_received,'likes_given': likes_given,'favorites_given': favorites_given},
+        'activity': {'posts_last_7_days': posts_last_7_days,'is_active_user': posts_last_7_days > 0}
+    }
+
+    return Response(data)

@@ -116,3 +116,19 @@ class LikeSerializer(serializers.ModelSerializer):
 
     def get_post(self, obj):
         return {'id': obj.post.id,'title': obj.post.title}
+
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    post = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Favorite
+        fields = ['id', 'user', 'post', 'created_at']
+
+    def get_user(self, obj):
+        return {'id': obj.user.id,'username': obj.user.username}
+
+    def get_post(self, obj):
+        return {'id': obj.post.id,'title': obj.post.title,'author': obj.post.user.username,'likes_count': obj.post.like_set.count()}

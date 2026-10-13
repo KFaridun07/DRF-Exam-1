@@ -22,6 +22,11 @@ urlpatterns = [
     path('posts/author-statistics/', author_statistics),
     path('likes/', like_list),
     path('likes/<int:pk>/', like_detail),
+    path('posts/<int:pk>/likes/', post_likes),
+    path('likes/top-posts/', top_posts_by_likes),
+    path('favorites/', favorite_list),
+    path('favorites/<int:pk>/', favorite_detail),
+    path('users/<int:pk>/favorites/', user_favorites),
     
 ]
 
