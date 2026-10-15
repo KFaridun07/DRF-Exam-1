@@ -40,7 +40,11 @@ INSTALLED_APPS = [
     'myapp',
     'rest_framework',
     'drf_yasg',
+    'rest_framework.authtoken',
+    'accounts',
 ]
+
+AUTH_USER_MODEL = "accounts.CustomUser"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

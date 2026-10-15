@@ -179,10 +179,7 @@ def post_detail(request, pk):
     try:
         post = Post.objects.get(id=pk)
     except Post.DoesNotExist:
-        return Response(
-            {'error': 'Публикация не найдена'},
-            status=404
-        )
+        return Response({'error': 'Публикация не найдена'},status=404)
 
     if request.method == 'GET':
         post = Post.objects.annotate(
@@ -225,10 +222,7 @@ def user_posts(request, pk):
     try:
         user = User.objects.get(id=pk)
     except User.DoesNotExist:
-        return Response(
-            {'error': 'Пользователь не найден'},
-            status=404
-        )
+        return Response({'error': 'Пользователь не найден'},status=404)
 
     posts = Post.objects.filter(user=user).annotate(
         likes_count=Count('like', distinct=True),
